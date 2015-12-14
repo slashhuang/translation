@@ -1,0 +1,334 @@
+浏览器工作原理（翻译自http://domenicodefelice.blogspot.sg/2015/08/how-browsers-work.html）
+浏览器是世界上用途最广泛的软件了。
+它们展现着网络资源，并且创建一个可以运行网络应用的沙箱。
+浏览器达成这个目标的过程是复杂并且遵循着很多不同的标准。
+里面的运行机制是具有迷惑性和反常规的。
+理解浏览器的运行机制给了我们提升网络性能和网络应用效率的洞察力。
+
+浏览器的两个主模块
+1.rendering engine 渲染引擎或者称为布局引擎
+2.javascript解析器
+
+对于js解析器，很容易理解它的工作。
+这篇文章专注于浏览器的渲染引擎，它是大部分进程发生的地方。
+火狐使用Gecko(由mozilla发明)，Safari和谷歌的chrome都使用webkit引擎。
+谷歌的chrome在版本27之后使用Blink引擎。
+
+一个网页应用或者网站的组成部分：
+html:页面的内容
+css:内容的样式
+javascript:应用的逻辑，效果等等
+
+渲染引擎的工作:
+从基本的html css js 开始渲染整个屏幕的网页，粗浅的经过四个过程
+
+1. 解析html为dom树，解析css为cssom。
+2. 把dom和cssom结合起来生成渲染树
+3. 布局渲染树，计算几何形状
+4. 把渲染树展示到屏幕上
+
+优化这个严格的过程让我们可以以最快的速度向用户展示我们的网页内容。
+关键的点在于上述的4个过程并不是以严格顺序执行的。
+
+渲染引擎会以最快的速度展示内容，所以第二阶段不会等到第一阶段结束才开始，
+而是在第一阶段有输出的时候就开始执行。
+其它阶段也是如此。这就可以解释待会我们即将看到的。
+
+由于浏览器会尝试尽快展示内容，所以内容有时会在样式还没有加载的时候展示出来。
+这就是经常发生的FOCU(flash of unstyled content)问题。
+
+下面针对各个阶段进行讲解：
+1. 解析dom和cssom
+   ＊在这个阶段，引擎开始解析html，解析出来的结果会成为一棵dom树。html和dom并不是1:1的关系，
+   	 dom树的根节点是<html>元素
+   ＊dom的目的至少有2个：
+   		－ 作为下个阶段渲染树状图的输入
+   		－ 成为网页和脚本的交互界面。(最常用的就是getElementById等等)
+
+   解析器:
+   		－解析器在电脑科学中是经常使用的。它们是一些接受输入数据(经常以文本的形式)，创建
+   		  数据结构以供使用的软件。
+   		－输入数据对于解析器来说，大多数情况时静态的(在解析过程中不发生改变)
+   html解析器：
+   		－ html解析器是个例外，它是个可重入的解析器(这意味着它的输入在解析过程中可以动态修改)
+   		   这让第一阶段的解析更加的复杂，也让我们进入真正的第一次了解。
+   		－ 为何html解析器是可重入的？
+   		     － 有2点主要原因－
+   		     － 当浏览器解析到script标签的时候，js代码是立刻执行的
+   		     － js可以修改输入，例如通过(document.write)
+   		－ html解析是同步的(synchronous)
+   			 －当解析器到达script标签的时候，发生下面四件事情
+   			 	－html解析器停止解析,
+   			 	- 如果是外部脚本，就从外部网络获取脚本代码
+   			 	－将控制权交给js引擎，执行js代码
+   			 	－恢复html解析器的控制权
+＝＝＝＝结论1＝=＝＝由于<script>标签是阻塞解析的，将脚本放在网页尾部会加速代码渲染。
+				  defer和async属性也能有助于加载外部脚本。
+				  defer使得脚本会在dom完整构建之后执行；
+				  async标签使得脚本只有在完全available才执行，并且是以非阻塞的方式进行的。
+
+		－特殊点
+			－ 在Gecko和webkit,当引擎被获取和执行脚本所阻塞的时候，会开启第二个进程(thread)开始解析文档(document)
+			   寻找外部的资源进行加载，它不会修改dom,但是会开始获取外部的资源。
+		－ 关于外部样式表(css)
+			－ 我们已经看到html解析器碰到脚本后会做的事情，接下来我们看下html解析器碰到样式表会发生的情况
+				－ js会阻塞解析，因为它会修改文档(document)。css不会修改文档的结构，如果这样的话，
+				   似乎看起来css样式不会阻塞浏览器html解析。
+			－ css样式表是阻塞的，事实上css样式表是阻塞的，有以下的2个原因：
+				－ 脚本(scripts)
+					－ js有可能会寻求未被解析的样式信息。
+					－ 浏览器会以不同的方式处理这些潜在的问题，但是是以粗暴的形式：
+						－ 火狐会保持对脚本的控制权(hold execution)，直到样式表被下载到本地并且解析完成。
+						－ webkit引擎会暂停脚本执行，当脚本尝试获取一些未被加载或者未被解析的样式的时候。
+						＝＝这意味着火狐浏览器的页面head里面的脚本会做以下工作
+							－ 阻塞解析
+							－ 获取外部脚本
+							－ 等待样式表下载并且解析成cssom
+							－ 执行脚本script
+							－ 继续往下解析
+						＝＝这些可以通过将脚本尽可能放在页面底部来避免加载的阻塞。
+				－ 渲染(redering),浏览器会保持渲染进程直到cssom建立起来
+					- 通过以下手段可以减轻cssom带来的影响
+						－ 将script脚本放在页面底部
+						－ 尽可能快的加载css样式表
+							－将样式表按照media type和media query区分，这样有助于我们将css资源标记成非阻塞渲染的资源。
+								－非阻塞的资源还是会被浏览器下载，只是优先级较低。
+
+				－网络(http)
+					－单客户端无法保持超过2个连接(A single-user client SHOULD NOT maintain more than 2 connections with any server)
+						－这意味着如果有my_style1.css
+										my_style2.css
+										my_style3.css
+										my_style4.css
+							这4个css文件，my_style3.css的下载必须在my_style1.css完全下载后才能开始下载的过程
+							这种限制局限在同一个域下面。
+						＝＝＝＝这意味着如果我们把这4个css文件放在2个域下面例如(www.example.com和www.assets.example.com)，
+							   这些css能够同时开始下载(即使上面的两个域名指向同一个ip地址)
+						－ 发起尽可能少的http请求对页面加载至关重要，因此将文件放在不同的域名下对页面加载是裨益的。
+						－ 事实上很多浏览器能够同时下载超过2个的资源，在2014 RFC2616发布的http/1.1 中移除了2个连接的限制。
+						   根据browserscope.org的测试，现在主流的浏览器基本能达到同时发送6个http请求，ie11能够达到13个
+						   ＝＝＝虽然现在连接数都增加了，然而减少http请求还是能很好的加速页面加载
+
+			- css样式表
+				所有的样式表都会被解析成cssom对象模型(就和dom树一样展现结构)
+				－为什么要以树状图的形式展现css呢？
+					- css的名字解释了这一切(cascading style sheet)
+					- 每一个页面element都会被许多css规则匹配
+						- 匹配顺序：origin => weight => specificity
+						- css origin
+							-作者自定义
+							－浏览器使用者定义
+							－userAgent 定义
+						－ css weight
+							-normal weight
+							-!important weight
+						- css specificity (我们最应该关注的点)
+							注意：!important 已经被css的作者引入了浏览器，用来覆盖页面样式。
+								  本来这个方式并不是给开发者使用的，在样式表中使用!important 会让我们忽略specificity	真正工作的原理。
+							－ specificity 是css令人困惑的主要来源。specificity规则由(a,b,c,d)的规则决定。
+								－a : 值为1(当样式放在style属性中的时候)，0为其它情况
+								－b : id在样式规则中出现的次数 eg:#slide #hello p的值就是2
+								－c : class，伪类，和属性在样式中出现的次数 eg:input[type=email]值就是2
+								－d : 标签个数(tag names)和伪类元素出现的次数
+								例如：
+								Example:
+							HTML
+								<div id=”sidebar”>
+    								<div id=”widget” class=”class-div”>
+        							<span class=”span-class” style=”color: red”>Hello, world!</span>
+    								</div>
+								</div>
+
+							CSS
+								.span-class {      /* Specificity (0, 0, 1, 0) */
+    								color: green;
+									}
+
+								#sidebar #widget {    /* Specificity (0, 2, 0, 0) */
+    								color: orange;
+									}
+
+								#sidebar {    /* Specificity (0, 1, 0, 0) */
+    								color: yellow;
+									}
+
+								#sidebar .class-div {    /* Specificity (0, 1, 1, 0) */
+    								color: blue;
+									}
+
+								The inline rule, will have a specificity of (1, 0, 0, 0).
+								接下来的优先级是(0, 2, 0, 0)；以此类推
+							－ 使用!important 的样式覆盖都可以通过css优先级机制(比如加个样式等来提高优先级)
+							－ 总结：
+								－元素样式的应用按照如下规则排列
+									-origin
+									-weight
+									-specificity
+									-order of definition
+									specificity只有在origin和weight一致的情况下才有效，再次就是定义的顺序
+									最后定义的样式会覆盖之前的样式。
+						- 在解析css的过程中，cssom树并不是浏览器构建的唯一数据结构,css样式匹配是件重活
+						      为了尽可能快的加载样式，每一种最精确的匹配规则[见前面css样式加载的规则]都会被加入众多哈希表中的一张	。
+						      有针对id,class类名，标签名和一些其他不符合任何规则的哈希表。
+						      当浏览器试图寻找哪个样式表加载到元素上的时候，它没必要查看所有的规则，而只需要查看哈希表。
+						      这又引导我们到另一个重要的知识:我们从一个元素开始，寻找它的id,class,标签等，然后在多个字典中查找他们，
+						      我们总是匹配最右边的(rightmost)的选择器，这个选择器称为主选择器(key selector).
+
+						      这个概念开始的时候可能有些难以理解，但是它对我们如何写更快的css规则至关重要。
+						      让我们看个例子：
+						      HTML
+									<div id=”container1”>
+    									… thousands of <a> elements here …
+    									<a> … </a>
+    									… thousands of <a> elements here …
+									</div>
+									<div id=”container2”>
+   										<a class=”a-class”>...</a>
+									</div>
+									我们假如要选择container2种的a标签
+									This selector:
+										#container2 a {...}
+										这个选择器将会严重影响加载性能，如果从左到右读取，那就是先找到#container2然后再找a标签
+											，然而浏览器将会从右往左读取，它会先读取所有的a标签，然后再沿着dom往上走，直到找到#container.
+											这意味着这个规则会寻找所有的a，但是实际上很多a在#container1之中。
+											我们可以写一个更有效率的样式表:#container2 .a-class {...}。
+										这个特性可以在javascript或者jquery中得到很好的发挥:
+											eg:将$(‘#container .class-name’)改为$(‘.class-name’, ‘#container’)可以很好的
+												性能。
+												－前者会先去寻找.class-name然后再沿着dom树寻找#container元素
+												－后者会先找到#container，然后再沿着子树寻找.class-name的元素
+
+				-当所有的html解析完成，整个document被标记成富交互的，它的状态显示为完成。
+					－deferred脚本会被执行
+					－加载的事件会被执行
+					－至此:我们已经看到第一阶段最重要的事情，加载html渲染cssom到页面。
+				－接下来我们看下，dom和cssom是如何合并起来渲染dom树的。
+
+2.把dom和cssom合并渲染树状图(render tree)
+	dom节点和cssom会合并渲染新的树状图。
+	－它的机构和dom树类似，但不是完全一样:只有被展示的元素才会在这棵树中(以下称为tree);
+		例如head，script标签都不会在树中，所有拥有display:none样式的节点也不会在树中
+	整个结构是按照它们的渲染顺序可视化的树状图，每个节点都存储着应用在它上面的css属性。
+	这些节点在不同的浏览器中被称为不同的:
+		－webkit称它为renderers
+		- firefox称它为frames
+		有些时候节点也直接称为boxes。
+	－ 一旦我们有了包含所有可视化的元素和样式后，我们就可以开始第三阶段了。
+
+3. the layout(flow) 阶段
+	－我们已经有了一棵包含次序排列的所有元素和相关样式，那么渲染页面还缺少什么呢？
+	答案是:节点的几何图形。
+	一个节点的几何图形时它的位置和维度，有时候它被规定在css样式表中。不管如何，它们都必须被计算，以便
+	所有的节点能正确的渲染。
+	相关的在样式表中使用的单元都转化成pixels。
+	－最后阶段
+		现在我们的渲染render tree已经具备了：
+			－哪些节点是可视化的
+			－节点该按照何种顺序渲染
+			－节点的样式
+			－它们的几何位置(position and dimension)
+		这些已经足够让我们进入下个阶段:渲染页面
+	这个阶段也被称为"绘制"(painting)
+	所有的节点被遍历，从root开始，paint的方法被称为'每个节点知道如何自己渲染自己'
+	在最后的阶段，整个过程都是迅速的
+	－我们对paint的过程不感兴趣，但是我们知道下面两点:
+		-整个过程很耗费性能(阻塞式)
+		－它们可以重新被触发
+	－reflows和repaints不可避免，但是降低它们的频率可以提升我们网站的加载速度
+		－是什么出发了reflow和repaint呢？
+		－javascript操作页面
+			－dom操作(增加或者移除dom)
+			－样式表操作(增加或者移除样式规则)
+		- 用户操作(例如):
+			-a标签的鼠标悬浮效果
+			－滚动页面
+			－input标签的focus
+			－resize窗口
+		我们无可避免重新渲染的过程，但是我们可以尽可能降低浏览器性能的损耗。
+			－优化html和css(我们可以更好的控制reflow和repaint)
+	浏览器是聪明的(1)
+		－浏览器会尽可能少的对改变做出响应
+			－例如:改变元素的属性，会触发本地的repaint，repaint当前元素的子树(subtree)
+		－因此，reflow和repaint可以是全局的(global)或者增量的(incremental)
+		- 对子树深度的改变尽可能小可以加速repaint的过程(操作深度浅的元素可以提高性能)
+		－reflow和repaint不必同时发生
+			－例如:如果只是改变元素的颜色，那么只会触发repaint
+			－例如:如果改变一个元素的位置，将会触发reflow和repaint
+		－reflow和repaint哪个性能开销更大？
+			我们必须考虑到浏览器将会使用沉重(heavy)的缓存(cache)来避免重新计算
+			一个repaint需要浏览器遍历元素来决定哪些是可见的，哪些事必须展示的
+			一个reflow重新计算元素的几何状态(geometry)，会递归的(recursively)reflow它的子树，有时还包括它的同胞元素(siblings)
+			一个reflow将会触发repaint来更新网页
+		－如何以最小的reflow优化css和html
+			－样式表越是简洁(leaner)，reflow越快
+			－dom的结构越高(higher)，reflow的性能开销越大
+			－有些元素的display模式比其他的性能开销更大
+				－行内样式会产生一个更深层次的reflow(further reflow)
+				-有自动的单元宽度的<table>	性能开销大，因为浏览器需要更多的步骤计算单元格的维度(more than one pass to calcute)
+				-使用flexbox布局性能开销大，因为flex元素的几何形状能在解析的时候发生改变
+		不管如何，在这些优化点上的重要程度不如javascript模块的	重要性
+			－让我们看下javascript代码
+				var foo = document.getElementById(‘foobar’);
+				foo.style.color = ‘blue’;
+				var margin = parseInt(foo.style.marginTop);
+				foo.style.marginTop = (margin + 10) + ‘px’;
+				这段代码会触发多少次reflow和repaint呢？
+	－浏览器是聪明的(2)
+		－由于reflow和repaint在性能开销上很大，浏览器会累积你在同一个时间片段(timeframe)里的所有的dom操作，进入队列(queue)，批量处理它们。
+		－我们来分析上面那段代码:
+			-在改变颜色属性后，这个操作被放在累积队列里面(accumulating queue),然后我们寻找元素的style。
+				唯一能够让浏览器确信找到正确答案的方式是执行这个队列中的批处理，换句话说我们强制执行了一个未成熟(premature)的repaint。
+			－这是怎么做到的呢？
+				当我们改变dom的元素的时候，元素被标记为脏的(dirty)，有时它的children也会被标记为脏的(dirty)，意味着至少它的一个字元素要reflow。
+				一旦对一个操作集合(manipulation aggregation)定时器(time interval)触发，所有的被标记为脏的元素会重新reflow和repaint。
+				＝＝寻找一个标记为脏的元素的属性，会触发浏览器的提前reflow＝＝＝＝＝
+
+	－强制执行的同步布局或者布局垃圾回收(layout trashing)
+		－交叉存储(interleaving)针对dom的读写操作会引发布局垃圾回收－－－性能杀手
+		－我们如何避免垃圾回收？
+			-重新组合对dom读写的命令(reorder commands)
+			-缓存计算样式
+			－不要使用style来改变样式，选择css样式表
+			－在dom之外操作元素
+			－尽可能将要操作的元素position设置为fixed或者absolute，这样更新这些元素的geometry的时候不会影响其他元素
+			－只在有必要的时候将display为none的元素展示出来
+			－使用window.requestAnimationFrame()
+			－使用虚拟dom库
+	 －window.requestAnimationFrame()允许我们在下一次reflow的时候执行代码
+	 	－这个很有用，因为它允许我们交叉存储读写，同时以最优顺序执行它们
+	 	 eg:
+	 	 	function doubleHeight(element) {
+    			var currentHeight = element.clientHeight;
+    			element.style.height = (currentHeight * 2) + ‘px’;
+				}
+			all_my_elements.forEach(doubleHeight);
+			Using window.requestAnimationFrame:
+
+			function doubleHeight(element) {
+    			var currentHeight = element.clientHeight;
+    			window.requestAnimationFrame(function () {
+        		element.style.height = (currentHeight * 2) + ‘px’;
+    			});
+				}
+			all_my_elements.forEach(doubleHeight);
+	－聪明的javascript开发者使用settimeout(fn,0)粗略的获得相同的结果，因为settimeout通常会在下次reflow的时候执行
+	－虚拟dom库
+		－react库最近称为了香饽饽，是典型的虚拟dom代表
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
