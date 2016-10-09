@@ -1,0 +1,10 @@
+第一章:  为什么选择同构JavaScript?
+作者: Jason Strimpel and Maxime Najim
+
+在2010年，Tweeter发布了它的新版重构网站。新版的Tweeter网站将UI渲染和业务逻辑交给了前端JavaScript。
+对于2010年来说，这种架构方式是具有开创性的。
+然而，在接下来的两年内，Tweeter又发布了它网站的再次重构版本，这个版本将渲染逻辑又重新回归到服务端。
+这次架构上的改变使得Tweeter将页面加载的首屏时间缩短到了原来的1/5。
+Tweeter将网站回归服务端渲染的举动在JavaScript社区引起了不小的震动。
+Tweeter网站及业界的开发者很快意识到客户端渲染对网站性能会有显著的影响。
+
