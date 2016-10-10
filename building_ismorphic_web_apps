@@ -56,13 +56,63 @@ JS发展具有突破性的下一步必然要考虑同构。但是，软件技术
 第二章介绍了两种不同类型的同构JS应用并进行了架构层面的分析。我们将要研究的同构JS的首要类型是电子商务网站。
 ········
 
+A Climate for Change
+
+The creation of the World Wide Web is attributed to Tim Berners Lee, who, while working for a nuclear research company on a project known as “Enquire” experimen‐ ted with the concept of hyperlinks. In 1989, Tim applied the concept of hyperlinks and put a proposal together for a centralized database that contained links to other documents. Over the course of time, this database has morphed into something much
+
+larger and has had a huge impact on our daily lives (e.g., through social media) and business (ecommerce). We are all teenagers stuck in a virtual mall. The variety of content and shopping options empowers us to make informed decisions and purcha‐ ses. Businesses realize the plethora of choices we have as consumers, and are greatly concerned with ensuring that we can find and view their content and products, with the ultimate goal of achieving conversions (buying stuff)—so much so that there are search engine optimization (SEO) experts whose only job is to make content and products appear higher in search results. However, that is not where the battle for conversions ends. Once consumers can find the products, the pages must load quickly and be responsive to user interactions, or else the businesses might lose the consumers to competitors. This is where we, engineers, enter the picture, and we have our own set of concerns in addition to the business’s concerns.
+
+
 为何而生
 
 万维网的发明归功于蒂姆·伯纳斯·李，蒂姆在为一家核研究公司做一个名为"Enquire"的项目时采用了超链接的概念。在1989年，蒂姆应用了超链接的概念，并且将一个中心化的、包含各类文档链接数据库和协议组合在一起。随着时间的发展，这个数据库演变得越来越巨大，对我们的生活也产生了巨大的影响。比如日常的消费购物，网上各式各样的信息都充斥着我们的生活。商业家门意识到用户在网上具有太多的选择了，他们逐渐开始关注自家的SEO工程师是否可以优化搜索，以便将他们的产品排在更容易被用户看到的地方。
 然而，SEO并不是商战的终点。一旦用户发现了你的产品并点击网页，你的页面必须快速加载，同时对用户的行进行及时响应，不然所有的客户将会逐渐流失到竞争者那边。
 这就是我们IT工程师在商业考虑之外需要着手处理的问题。
 
+
+Engineering Concerns
+
+As engineers, we have a number of concerns, but for the most part these concerns fall into the main categories of maintainability and efficiency. That is not to say that we do not consider business concerns when weighing technical decisions. As a matter of fact, good engineers do exactly the opposite: they find the optimal engineering solu‐ tion by contemplating the short- and long-term pros and cons of each possibility within the context of the business problem at hand.
+
 工程师的焦虑
+
+作为工程师，我们对问题的大部分考虑在于代码的开发效率和可维护性上面。
+这并不是说我们在进行技术选型的时候不会考虑商业的因素。
+事实上，好的开发工程师会从另一个角度考虑: 他们会在产品需求问题的长短期目标基础上，选择一个最佳的技术解决方案。
+
+
+Available Architectures
+
+Taking into account the primary business use case, an ecommerce application, we are going to examine a couple of different architectures within the context of history. Before we take a look at the architectures, we should first identify some key accept‐ ance criteria, so we can fairly evaluate the different architectures. In order of impor‐ tance:
+1. The application should be able to be indexed by search engines.
+2. The application’s first page load should be optimized—i.e., the critical rendering
+path should be part of the initial response.
+3. The application should be responsive to user interactions (e.g., optimized page
+transitions).
+
+注:==>
+The critical rendering path is the content that is related to the pri‐ mary action a user wants to take on the page. In the case of an ecommerce application it would be a product description. In the case of a news site it would be an article’s content.These business criteria will also be weighed against the primary engineering con‐ cerns, maintainability and efficiency, throughout the evaluation process.
+
+可用的架构方式
+
+我们以最常见的商业案例: 电子商务网站来分析这类网站的在历史进程中的架构演变。
+在分析之前，我们首先提炼出几大核心准则以便正确评估不同的架构方案。
+我们按照如下方式来安排重要程度的优先级:
+1. 这个应用能够被搜索引擎索引到。
+2. 这个应用的首屏加载需要优化，比如在首次响应中就应该渲染正确的url路径。
+3. 这个应用能够正确的相应用户操作，比如优化过的页面切换。
+
+注: ==>
+正确的url路径指的是用户期望看到的页面，比如在电商网站中可能是产品详情页，在新闻网站可能是一篇文章的内容页。
+除了可维护性、开发效率之外，这些商业原则在代码架构中也是需要评估的原则。
+
+
+
+
+
+
+
+
 
 
 
